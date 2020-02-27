@@ -58,11 +58,12 @@ import Data.Monoid ((<>))
 --      * If TERM contains "xterm" or "screen", use XTermColor.
 --      * otherwise use the TerminfoBased driver.
 outputForConfig :: Config -> IO Output
-outputForConfig Config{ outputFd = Just fd, termName = Just termName, .. } = do
+outputForConfig Config{ outputFd = Just fd, termName = Just termName
+                      , colorMode = Just colorMode, .. } = do
     t <- if "xterm" `isPrefixOf` termName || "screen" `isPrefixOf` termName
-        then XTermColor.reserveTerminal termName fd
+        then XTermColor.reserveTerminal termName fd colorMode
         -- Not an xterm-like terminal. try for generic terminfo.
-        else TerminfoBased.reserveTerminal termName fd
+        else TerminfoBased.reserveTerminal termName fd colorMode
 
     case mouseMode of
         Just s -> setMode t Mouse s

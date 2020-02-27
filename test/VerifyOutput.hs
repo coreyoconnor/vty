@@ -34,7 +34,11 @@ smokeTestTermNonMac termName i = liftIOResult $ do
 smokeTestTerm :: String -> Image -> IO Result
 smokeTestTerm termName i = do
     nullOut <- openFd "/dev/null" WriteOnly Nothing defaultFileFlags
-    t <- outputForConfig $ defaultConfig { outputFd = Just nullOut, termName = Just termName }
+    t <- outputForConfig $ defaultConfig
+        { outputFd = Just nullOut
+        , termName = Just termName
+        , colorMode = Just NoColor
+        }
     -- putStrLn $ "context color count: " ++ show (contextColorCount t)
     reserveDisplay t
     dc <- displayContext t (100,100)

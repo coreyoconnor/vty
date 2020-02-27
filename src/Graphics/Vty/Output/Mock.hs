@@ -11,6 +11,7 @@ module Graphics.Vty.Output.Mock
 where
 
 import Graphics.Vty.Image (DisplayRegion)
+import Graphics.Vty.Attributes.Color (ColorMode(ColorMode16))
 import Graphics.Vty.Output.Interface
 
 import Blaze.ByteString.Builder.Word (writeWord8)
@@ -52,12 +53,12 @@ mockTerminal r = liftIO $ do
             , outputByteBuffer = \bytes -> do
                 putStrLn $ "mock outputByteBuffer of " ++ show (BS.length bytes) ++ " bytes"
                 writeIORef outRef $ UTF8.fromRep bytes
-            , contextColorCount = 16
             , supportsCursorVisibility = True
             , supportsMode = const False
             , setMode = const $ const $ return ()
             , getModeStatus = const $ return False
             , assumedStateRef = newAssumedStateRef
+            , outputColorMode = ColorMode16
             , mkDisplayContext = \tActual rActual -> return $ DisplayContext
                 { contextRegion = rActual
                 , contextDevice = tActual

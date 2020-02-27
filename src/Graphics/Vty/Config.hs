@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase, MultiWayIf #-}
 -- | Vty supports a configuration file format and associated 'Config'
 -- data type. The 'Config' can be provided to 'mkVty' to customize the
 -- application's use of Vty.
@@ -86,6 +87,7 @@ import Data.Semigroup (Semigroup(..))
 import Data.Typeable (Typeable)
 
 import Graphics.Vty.Input.Events
+import Graphics.Vty.Attributes.Color (ColorMode(..), detectColorMode)
 
 import GHC.Generics
 
@@ -140,6 +142,7 @@ data Config = Config
     -- | The terminal name used to look up terminfo capabilities.
     -- The default is the value of the TERM environment variable.
     , termName           :: Maybe String
+    , colorMode          :: Maybe ColorMode
     } deriving (Show, Eq)
 
 defaultConfig :: Config
@@ -154,9 +157,10 @@ instance Semigroup Config where
         , bracketedPasteMode = bracketedPasteMode c1
         , debugLog      = debugLog c1 <|> debugLog c0
         , inputMap      = inputMap c0 <>  inputMap c1
-        , inputFd      = inputFd c1 <|> inputFd c0
-        , outputFd     = outputFd c1 <|> outputFd c0
+        , inputFd       = inputFd c1  <|> inputFd c0
+        , outputFd      = outputFd c1 <|> outputFd c0
         , termName      = termName c1 <|> termName c0
+        , colorMode     = colorMode c1 <|> colorMode c0
         }
 
 instance Monoid Config where
@@ -167,9 +171,10 @@ instance Monoid Config where
         , bracketedPasteMode = Nothing
         , debugLog     = mempty
         , inputMap     = mempty
-        , inputFd     = Nothing
-        , outputFd    = Nothing
+        , inputFd      = Nothing
+        , outputFd     = Nothing
         , termName     = Nothing
+        , colorMode    = Nothing
         }
 #if !(MIN_VERSION_base(4,11,0))
     mappend = (<>)
@@ -196,7 +201,8 @@ standardIOConfig = do
     mb <- lookupEnv "TERM"
     case mb of
       Nothing -> throwIO VtyMissingTermEnvVar
-      Just t ->
+      Just t -> do
+        mcolorMode <- detectColorMode t
         return defaultConfig
           { vmin               = Just 1
           , mouseMode          = Just False
@@ -205,6 +211,7 @@ standardIOConfig = do
           , inputFd            = Just stdInput
           , outputFd           = Just stdOutput
           , termName           = Just t
+          , colorMode          = Just mcolorMode
           }
 
 parseConfigFile :: FilePath -> IO Config

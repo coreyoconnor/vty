@@ -10,6 +10,7 @@ where
 import Graphics.Vty.Output.Interface
 import Graphics.Vty.Input.Mouse
 import Graphics.Vty.Input.Focus
+import Graphics.Vty.Attributes.Color (ColorMode)
 import qualified Graphics.Vty.Output.TerminfoBased as TerminfoBased
 
 import Blaze.ByteString.Builder (writeToByteString)
@@ -31,8 +32,8 @@ import Data.Monoid ((<>))
 #endif
 
 -- | Construct an Xterm output driver. Initialize the display to UTF-8.
-reserveTerminal :: ( Applicative m, MonadIO m ) => String -> Fd -> m Output
-reserveTerminal variant outFd = liftIO $ do
+reserveTerminal :: ( Applicative m, MonadIO m ) => String -> Fd -> ColorMode -> m Output
+reserveTerminal variant outFd colorMode = liftIO $ do
     let flushedPut = void . fdWrite outFd
     -- If the terminal variant is xterm-color use xterm instead since,
     -- more often than not, xterm-color is broken.
@@ -40,7 +41,7 @@ reserveTerminal variant outFd = liftIO $ do
 
     utf8a <- utf8Active
     when (not utf8a) $ flushedPut setUtf8CharSet
-    t <- TerminfoBased.reserveTerminal variant' outFd
+    t <- TerminfoBased.reserveTerminal variant' outFd colorMode
 
     mouseModeStatus <- newIORef False
     focusModeStatus <- newIORef False

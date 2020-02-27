@@ -1,8 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module Graphics.Vty.Attributes.Color
   ( Color(..)
+  , ColorMode(..)
+
+  -- * Detecting Terminal Color Support
+  , detectColorMode
 
   -- ** Fixed Colors
   -- | Standard 8-color ANSI terminal color codes.
@@ -32,7 +37,10 @@ module Graphics.Vty.Attributes.Color
   , brightCyan
   , brightWhite
   -- ** Creating Colors From RGB
+  , linearColor
+  , srgbColor
   , rgbColor
+  , color240
   , module Graphics.Vty.Attributes.Color240
   )
 where
@@ -40,6 +48,12 @@ where
 import Data.Word
 import GHC.Generics
 import Control.DeepSeq
+import Text.Printf (printf)
+import System.Environment (lookupEnv)
+
+import qualified System.Console.Terminfo as Terminfo
+import Control.Exception (catch)
+import Data.Maybe
 
 import Graphics.Vty.Attributes.Color240
 
@@ -95,8 +109,32 @@ import Graphics.Vty.Attributes.Color240
 -- terminfo but I don't know it.
 --
 -- Seriously, terminal color support is INSANE.
-data Color = ISOColor !Word8 | Color240 !Word8
+data Color = ISOColor !Word8 | Color240 !Word8 | RGBColor !Word8 !Word8 !Word8
     deriving ( Eq, Show, Read, Generic, NFData )
+
+data ColorMode
+    = NoColor
+    | ColorMode8
+    | ColorMode16
+    | ColorMode240 !Word8
+    | FullColor
+    deriving ( Eq, Show )
+
+detectColorMode :: String -> IO ColorMode
+detectColorMode termName' = do
+    term <- catch (Just <$> Terminfo.setupTerm termName')
+                  (\(_ :: Terminfo.SetupTermError) -> return Nothing)
+    let getCap cap = term >>= \t -> Terminfo.getCapability t cap
+        termColors = fromMaybe 0 $ getCap (Terminfo.tiGetNum "colors")
+    colorterm <- lookupEnv "COLORTERM"
+    return $ if
+        | termColors <  8               -> NoColor
+        | termColors <  16              -> ColorMode8
+        | termColors == 16              -> ColorMode16
+        | termColors <  256             -> ColorMode240 (fromIntegral termColors - 16)
+        | colorterm == Just "truecolor" -> FullColor
+        | colorterm == Just "24bit"     -> FullColor
+        | otherwise                     -> ColorMode240 240
 
 black, red, green, yellow, blue, magenta, cyan, white :: Color
 black  = ISOColor 0
@@ -119,9 +157,40 @@ brightMagenta= ISOColor 13
 brightCyan   = ISOColor 14
 brightWhite  = ISOColor 15
 
+-- TODO: test this with other terminals
+linearColor :: Integral i => i -> i -> i -> Color
+linearColor r g b
+    | r < 0 || r > 255 = makeError
+    | g < 0 || g > 255 = makeError
+    | b < 0 || b > 255 = makeError
+    | otherwise = RGBColor r' g' b'
+    where
+        r' = fromIntegral r :: Word8
+        g' = fromIntegral g :: Word8
+        b' = fromIntegral b :: Word8
+        makeError = error $ printf "invalid value in rgbColor: (%d, %d, %d)" r' g' b'
+
+srgbColor :: Integral i => i -> i -> i -> Color
+srgbColor r g b =
+    -- srgb to rgb transformation as described at
+    -- https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation
+    --
+    -- TODO: it may be worth translating this to a lookup table, as with color240
+    let shrink n = fromIntegral n / 255 :: Double
+        -- called gamma^-1 in wiki
+        gamma u
+            | u <= 0.04045 = u/12.92
+            | otherwise    = ((u + 0.055) / 1.055) ** 2.4
+        -- TODO: this is a slightly inaccurate conversion. is it worth doing proterly?
+        expand n = round (255 * n)
+        convert = expand . gamma . shrink
+     in RGBColor (convert r) (convert g) (convert b)
+
+color240 :: Integral i => i -> i -> i -> Color
+color240 r g b = Color240 (rgbColorToColor240 r g b)
 
 -- | Create a Vty 'Color' (in the 240 color set) from an RGB triple.
 -- This function is lossy in the sense that we only internally support 240 colors but the
 -- #RRGGBB format supports 16^3 colors.
 rgbColor :: Integral i => i -> i -> i -> Color
-rgbColor r g b = Color240 (rgbColorToColor240 r g b)
+rgbColor = color240
