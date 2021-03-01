@@ -110,7 +110,7 @@ import Prelude
 import Control.Applicative hiding (many)
 
 import Control.Exception (catch, IOException, Exception(..), throwIO)
-import Control.Monad (liftM, guard, void)
+import Control.Monad (guard, void)
 
 import qualified Data.ByteString as BS
 #if !(MIN_VERSION_base(4,8,0))
@@ -355,7 +355,7 @@ ignoreLine :: Parser ()
 ignoreLine = void $ manyTill anyChar newline
 
 parseConfig :: Parser Config
-parseConfig = liftM mconcat $ many $ do
+parseConfig = fmap mconcat $ many $ do
     P.whiteSpace configLexer
     let directives = [try mapDecl, try debugLogDecl, try widthMapDecl]
     choice directives <|> (ignoreLine >> return defaultConfig)

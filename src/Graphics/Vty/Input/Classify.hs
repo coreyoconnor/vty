@@ -46,7 +46,7 @@ compile table = cl' where
                 -- contains, by definition, all prefixes of an event.
                 False ->
                     let inputPrefixes = reverse $ take maxValidInputLength $ tail $ inits inputBlock
-                    in case mapMaybe (\s -> (,) s `fmap` M.lookup s eventForInput) inputPrefixes of
+                    in case mapMaybe (\s -> (,) s <$> M.lookup s eventForInput) inputPrefixes of
                         (s,e) : _ -> Valid e (drop (length s) inputBlock)
                         -- neither a prefix or a full event.
                         [] -> Invalid

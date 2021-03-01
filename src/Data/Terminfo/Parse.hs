@@ -10,7 +10,6 @@ module Data.Terminfo.Parse
   )
 where
 
-import Control.Monad ( liftM )
 import Control.DeepSeq
 
 #if !(MIN_VERSION_base(4,11,0))
@@ -210,7 +209,7 @@ conditionalOpParser = do
                  !vs <- manyP p end
                  return $! v : vs
             ]
-        manyExpr end = liftM mconcat $ manyP ( paramEscapeParser <|> bytesOpParser ) end
+        manyExpr end = fmap mconcat $ manyP ( paramEscapeParser <|> bytesOpParser ) end
 
 conditionalTrueParser :: CapParser ()
 conditionalTrueParser = do
@@ -308,7 +307,7 @@ bytesOpParser = do
 charConstParser :: CapParser BuildResults
 charConstParser = do
     _ <- char '\''
-    charValue <- liftM (toEnum . fromEnum) anyChar
+    charValue <- toEnum . fromEnum <$> anyChar
     _ <- char '\''
     incOffset 3
     return $ BuildResults 0 [ PushValue charValue ] [ ]
