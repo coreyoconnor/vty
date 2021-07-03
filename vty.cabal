@@ -36,6 +36,10 @@ source-repository head
   type: git
   location: https://github.com/jtdaugherty/vty.git
 
+flag no-pkgconfig 
+  description:         Don't use pkg-config to check for library dependencies
+  default:             False
+  
 library
   default-language:    Haskell2010
   build-depends:       base >= 4.8 && < 5,
@@ -114,6 +118,9 @@ library
                        cbits/mk_wcwidth.c
 
   include-dirs:        cbits
+  
+  if !flag(no-pkgconfig)
+    pkgconfig-depends:   tinfo
 
   hs-source-dirs:      src
 
